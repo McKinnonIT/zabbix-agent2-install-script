@@ -69,7 +69,7 @@ try {
         Write-Host "Download complete. Installing Zabbix Agent 2..."
 
         $LogFile = Join-Path $env:TEMP "zabbix_agent2_install.log"
-        $msiArgs = "/i `"$TempPath`" /qn /L*V `"$LogFile`" SERVER=$ZabbixServer SERVERACTIVE=$ZabbixServerActive HOSTNAME=`"$ZabbixHostnameFQDN`""
+        $msiArgs = "/i `"$TempPath`" /qn /L*V `"$LogFile`" SERVER=$ZabbixServer SERVERACTIVE=$ZabbixServerActive HOSTNAME=`"$ZabbixHostnameFQDN`" HOSTMETADATA=windows"
         $InstallProcess = Start-Process msiexec.exe -ArgumentList $msiArgs -Wait -NoNewWindow -PassThru
 
         if ($InstallProcess.ExitCode -ne 0) {
@@ -85,10 +85,11 @@ try {
     if (Test-Path $ConfigFile) {
         $ConfigFileContent = Get-Content $ConfigFile -Raw
 
-        # Update Server, ServerActive, and Hostname
-        $ConfigFileContent = $ConfigFileContent -replace "Server=.*", "Server=$ZabbixServer"
-        $ConfigFileContent = $ConfigFileContent -replace "ServerActive=.*", "ServerActive=$ZabbixServerActive"
-        $ConfigFileContent = $ConfigFileContent -replace "Hostname=.*", "Hostname=$ZabbixHostnameFQDN"
+        # Update Server, ServerActive, Hostname and HostMetadata
+        $ConfigFileContent = $ConfigFileContent -replace "(?m)^#?\s*Server=.*", "Server=$ZabbixServer"
+        $ConfigFileContent = $ConfigFileContent -replace "(?m)^#?\s*ServerActive=.*", "ServerActive=$ZabbixServerActive"
+        $ConfigFileContent = $ConfigFileContent -replace "(?m)^#?\s*Hostname=.*", "Hostname=$ZabbixHostnameFQDN"
+        $ConfigFileContent = $ConfigFileContent -replace "(?m)^#?\s*HostMetadata=.*", "HostMetadata=windows"
 
         $ConfigFileContent | Set-Content $ConfigFile
 
