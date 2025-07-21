@@ -55,7 +55,7 @@ if (-not $ZabbixServer) {
 }
 
 # Get Hostname (FQDN)
-$ZabbixHostnameFQDN = try { ([System.Net.Dns]::GetHostByName($env:COMPUTERNAME)).HostName } catch { $env:COMPUTERNAME }
+$ZabbixHostnameFQDN = $env:COMPUTERNAME
 
 try {
     # Check if Zabbix Agent 2 is already installed
