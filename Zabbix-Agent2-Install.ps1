@@ -1,5 +1,5 @@
 # Define agent version and download URL
-$ZabbixVersion = "7.2.6" # Update this to the latest stable version if needed
+$ZabbixVersion = "7.4.0" # Update this to the latest stable version if needed
 $ZabbixMajorVersion = ($ZabbixVersion -Split '\.')[0..1] -join '.'
 $DownloadUrl = "https://cdn.zabbix.com/zabbix/binaries/stable/$ZabbixMajorVersion/$ZabbixVersion/zabbix_agent2-$ZabbixVersion-windows-amd64-openssl.msi"
 $TempPath = Join-Path $env:TEMP "zabbix_agent2.msi"
