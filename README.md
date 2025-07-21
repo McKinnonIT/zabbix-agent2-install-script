@@ -9,10 +9,20 @@ This repository contains a PowerShell script to automate the installation and co
 
 ## Usage
 
-To download and run the script, open an elevated PowerShell prompt and execute the following command:
+To download and run the script, open an elevated PowerShell prompt and execute the appropriate command for your system.
+
+### Modern Windows (Windows 10 / Server 2019 and newer)
 
 ```powershell
-irm https://raw.githubusercontent.com/McKinnonIT/zabbix-agent2-install-script/refs/heads/main/Zabbix-Agent2-Install.ps1 | iex
+irm https://raw.githubusercontent.com/McKinnonIT/zabbix-agent2-install-script/main/Zabbix-Agent2-Install.ps1 | iex
+```
+
+### Older Windows (Windows Server 2016 / PowerShell 5.1)
+
+Older systems like Windows Server 2016 require TLS 1.2 to be enabled before they can download the script from GitHub. Run the following command, which enables TLS 1.2 for the current session and then executes the script:
+
+```powershell
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; iex (New-Object Net.WebClient).DownloadString('https://raw.githubusercontent.com/McKinnonIT/zabbix-agent2-install-script/main/Zabbix-Agent2-Install.ps1')
 ```
 
 ## Important Notes
