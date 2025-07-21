@@ -1,3 +1,51 @@
+# ===== COMPATIBILITY FIXES FOR OLDER POWERSHELL/WINDOWS VERSIONS =====
+# Enable TLS 1.2 for older PowerShell versions (required for GitHub downloads)
+try {
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+} catch {
+    # Fallback for very old .NET versions
+    try {
+        [Net.ServicePointManager]::SecurityProtocol = 3072 # TLS 1.2
+    } catch {
+        Write-Warning "Could not enable TLS 1.2. Downloads may fail on this system."
+    }
+}
+
+# Function to get IP addresses with fallback for older systems
+function Get-LocalIPAddresses {
+    $ipAddresses = @()
+    
+    # Try modern Get-NetIPAddress first (Windows 8/Server 2012+)
+    try {
+        $ipAddresses = Get-NetIPAddress -AddressFamily IPv4 -ErrorAction Stop | 
+                      Where-Object { $_.AddressFamily -eq 'IPv4' -and $_.InterfaceAlias -notlike '*Loopback*' -and $_.IPAddress -notlike "169.254.*" }
+    } catch {
+        # Fallback to WMI for older systems
+        Write-Host "Using WMI fallback for IP address detection (older Windows version detected)..."
+        try {
+            $adapters = Get-WmiObject -Class Win32_NetworkAdapterConfiguration -ErrorAction Stop | 
+                       Where-Object { $_.IPEnabled -eq $true -and $_.IPAddress -ne $null }
+            
+            foreach ($adapter in $adapters) {
+                foreach ($ip in $adapter.IPAddress) {
+                    if ($ip -match '^\d+\.\d+\.\d+\.\d+$' -and $ip -notlike "169.254.*" -and $ip -ne "127.0.0.1") {
+                        $ipObj = New-Object PSObject -Property @{
+                            IPAddress = $ip
+                        }
+                        $ipAddresses += $ipObj
+                    }
+                }
+            }
+        } catch {
+            Write-Warning "Could not retrieve IP addresses. Manual Zabbix server configuration may be required."
+        }
+    }
+    
+    return $ipAddresses
+}
+
+# ===== END COMPATIBILITY FIXES =====
+
 # Define agent version and download URL
 $ZabbixVersion = "7.4.0" # Update this to the latest stable version if needed
 $ZabbixMajorVersion = ($ZabbixVersion -Split '\.')[0..1] -join '.'
@@ -27,7 +75,8 @@ $ZabbixServerMap = @{
 $ZabbixServer = $null
 $ZabbixServerActive = $null
 
-$ipAddresses = Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.AddressFamily -eq 'IPv4' -and $_.InterfaceAlias -notlike '*Loopback*' -and $_.IPAddress -notlike "169.254.*" }
+# Use compatibility function to get IP addresses
+$ipAddresses = Get-LocalIPAddresses
 
 foreach ($ip in $ipAddresses) {
     $ipParts = $ip.IPAddress.Split('.')
@@ -65,7 +114,17 @@ try {
     } else {
         Write-Host "Zabbix Agent 2 not detected, starting installation..."
         Write-Host "Downloading Zabbix Agent 2 from $DownloadUrl..."
-        Invoke-WebRequest -Uri $DownloadUrl -OutFile $TempPath -UseBasicParsing
+        
+        # Enhanced download with better error handling for older systems
+        try {
+            Invoke-WebRequest -Uri $DownloadUrl -OutFile $TempPath -UseBasicParsing -ErrorAction Stop
+        } catch {
+            Write-Error "Failed to download Zabbix Agent 2. Error: $($_.Exception.Message)"
+            Write-Host "This may be due to TLS/SSL issues on older systems."
+            Write-Host "Please try updating Windows or manually download the installer from: $DownloadUrl"
+            exit 1
+        }
+        
         Write-Host "Download complete. Installing Zabbix Agent 2..."
 
         $LogFile = Join-Path $env:TEMP "zabbix_agent2_install.log"
