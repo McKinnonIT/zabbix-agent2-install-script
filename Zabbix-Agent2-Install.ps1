@@ -54,8 +54,8 @@ if (-not $ZabbixServer) {
     Write-Host "Using user-provided Zabbix Server: $ZabbixServer"
 }
 
-# Get Hostname (FQDN)
-$ZabbixHostnameFQDN = $env:COMPUTERNAME
+# Get Hostname (just the computer name, not FQDN)
+$ZabbixHostname = $env:COMPUTERNAME
 
 try {
     # Check if Zabbix Agent 2 is already installed
@@ -69,7 +69,7 @@ try {
         Write-Host "Download complete. Installing Zabbix Agent 2..."
 
         $LogFile = Join-Path $env:TEMP "zabbix_agent2_install.log"
-        $msiArgs = "/i `"$TempPath`" /qn /L*V `"$LogFile`" SERVER=$ZabbixServer SERVERACTIVE=$ZabbixServerActive HOSTNAME=`"$ZabbixHostnameFQDN`" HOSTMETADATA=windows"
+        $msiArgs = "/i `"$TempPath`" /qn /L*V `"$LogFile`" SERVER=$ZabbixServer SERVERACTIVE=$ZabbixServerActive HOSTNAME=`"$ZabbixHostname`" HOSTMETADATA=windows"
         $InstallProcess = Start-Process msiexec.exe -ArgumentList $msiArgs -Wait -NoNewWindow -PassThru
 
         if ($InstallProcess.ExitCode -ne 0) {
@@ -85,11 +85,15 @@ try {
     if (Test-Path $ConfigFile) {
         $ConfigFileContent = Get-Content $ConfigFile -Raw
 
-        # Update Server, ServerActive, Hostname and HostMetadata
+        # Update Server, ServerActive, and HostMetadata
         $ConfigFileContent = $ConfigFileContent -replace "(?m)^#?\s*Server=.*", "Server=$ZabbixServer"
         $ConfigFileContent = $ConfigFileContent -replace "(?m)^#?\s*ServerActive=.*", "ServerActive=$ZabbixServerActive"
-        $ConfigFileContent = $ConfigFileContent -replace "(?m)^#?\s*Hostname=.*", "Hostname=$ZabbixHostnameFQDN"
         $ConfigFileContent = $ConfigFileContent -replace "(?m)^#?\s*HostMetadata=.*", "HostMetadata=windows"
+        
+        # Only update Hostname if it's not already correctly set (to avoid duplicates)
+        if ($ConfigFileContent -notmatch "(?m)^Hostname=$ZabbixHostname$") {
+            $ConfigFileContent = $ConfigFileContent -replace "(?m)^#?\s*Hostname=.*", "Hostname=$ZabbixHostname"
+        }
 
         $ConfigFileContent | Set-Content $ConfigFile
 
