@@ -9,17 +9,29 @@ This repository contains a PowerShell script to automate the installation and co
 
 ## Usage
 
-To download and run the script, open an elevated PowerShell prompt and execute the appropriate command for your system.
+To download and run the script, open an elevated PowerShell prompt and execute the following **universal command** that works on all Windows versions:
 
-### Modern Windows (Windows 10 / Server 2019 and newer)
+### Universal Command (Recommended)
+
+```powershell
+try { irm https://raw.githubusercontent.com/McKinnonIT/zabbix-agent2-install-script/main/Zabbix-Agent2-Install.ps1 | iex } catch { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; iex (New-Object Net.WebClient).DownloadString('https://raw.githubusercontent.com/McKinnonIT/zabbix-agent2-install-script/main/Zabbix-Agent2-Install.ps1') }
+```
+
+This command automatically detects your system's capabilities:
+- **Modern Windows (Windows 10 / Server 2019+)**: Uses the fast `Invoke-RestMethod` (`irm`) approach
+- **Older Windows (Server 2016 / PowerShell 5.1)**: Automatically falls back to the legacy method with TLS 1.2 enabled
+
+### Alternative Commands (For Reference)
+
+If you prefer to use the specific commands:
+
+#### Modern Windows (Windows 10 / Server 2019 and newer)
 
 ```powershell
 irm https://raw.githubusercontent.com/McKinnonIT/zabbix-agent2-install-script/main/Zabbix-Agent2-Install.ps1 | iex
 ```
 
-### Older Windows (Windows Server 2016 / PowerShell 5.1)
-
-Older systems like Windows Server 2016 require TLS 1.2 to be enabled before they can download the script from GitHub. Run the following command, which enables TLS 1.2 for the current session and then executes the script:
+#### Older Windows (Windows Server 2016 / PowerShell 5.1)
 
 ```powershell
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; iex (New-Object Net.WebClient).DownloadString('https://raw.githubusercontent.com/McKinnonIT/zabbix-agent2-install-script/main/Zabbix-Agent2-Install.ps1')
