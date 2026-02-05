@@ -47,9 +47,8 @@ function Get-LocalIPAddresses {
 # ===== END COMPATIBILITY FIXES =====
 
 # Define agent version and download URL
-$ZabbixVersion = "7.4.0" # Update this to the latest stable version if needed
-$ZabbixMajorVersion = ($ZabbixVersion -Split '\.')[0..1] -join '.'
-$DownloadUrl = "https://cdn.zabbix.com/zabbix/binaries/stable/$ZabbixMajorVersion/$ZabbixVersion/zabbix_agent2-$ZabbixVersion-windows-amd64-openssl.msi"
+$ZabbixMajorVersion = "7.4"
+$DownloadUrl = "https://cdn.zabbix.com/zabbix/binaries/stable/$ZabbixMajorVersion/latest/zabbix_agent2-$ZabbixMajorVersion-latest-windows-amd64-openssl.msi"
 $TempPath = Join-Path $env:TEMP "zabbix_agent2.msi"
 $InstallPath = "C:\Program Files\Zabbix Agent 2"
 $ConfigFile = Join-Path $InstallPath "zabbix_agent2.conf"
@@ -145,15 +144,34 @@ try {
     if (Test-Path $ConfigFile) {
         $ConfigFileContent = Get-Content $ConfigFile -Raw
 
-        # Update Server, ServerActive, and HostMetadata
-        $ConfigFileContent = $ConfigFileContent -replace "(?m)^#?\s*Server=.*", "Server=$ZabbixServer"
-        $ConfigFileContent = $ConfigFileContent -replace "(?m)^#?\s*ServerActive=.*", "ServerActive=$ZabbixServerActive"
-        $ConfigFileContent = $ConfigFileContent -replace "(?m)^#?\s*HostMetadata=.*", "HostMetadata=windows"
-        
-        # Only update Hostname if it's not already correctly set (to avoid duplicates)
-        if ($ConfigFileContent -notmatch "(?m)^Hostname=$ZabbixHostname$") {
-            $ConfigFileContent = $ConfigFileContent -replace "(?m)^#?\s*Hostname=.*", "Hostname=$ZabbixHostname"
+        # Helper function to safely update config without duplication
+        function Update-ZabbixConfig {
+            param($Content, $Key, $Value)
+            # 1. Comment out ALL active instances of the key (to remove duplicates/old values)
+            #    Regex matches: Start of line, optional whitespace, Key, optional whitespace, =
+            $Content = $Content -replace "(?m)^(\s*)$Key\s*=", '$1# $2='
+            
+            # 2. Set the new value at the FIRST occurrence (which is now commented out)
+            #    This preserves the location in the file if it exists.
+            #    Capture Group 1: Indentation (\s*)
+            $pattern = "(?m)^(\s*)#?\s*$Key\s*=.*"
+            $regex = [regex]$pattern
+            
+            if ($regex.IsMatch($Content)) {
+                # Replace only the first occurrence, preserving indentation (`$1)
+                $Content = $regex.Replace($Content, "`$1${Key}=${Value}", 1)
+            } else {
+                # If not found at all, append to end
+                $Content += "`r`n${Key}=${Value}"
+            }
+            return $Content
         }
+
+        # Update Server, ServerActive, HostMetadata, and Hostname
+        $ConfigFileContent = Update-ZabbixConfig -Content $ConfigFileContent -Key "Server" -Value $ZabbixServer
+        $ConfigFileContent = Update-ZabbixConfig -Content $ConfigFileContent -Key "ServerActive" -Value $ZabbixServerActive
+        $ConfigFileContent = Update-ZabbixConfig -Content $ConfigFileContent -Key "HostMetadata" -Value "windows"
+        $ConfigFileContent = Update-ZabbixConfig -Content $ConfigFileContent -Key "Hostname" -Value $ZabbixHostname
 
         $ConfigFileContent | Set-Content $ConfigFile
 
