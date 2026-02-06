@@ -147,9 +147,14 @@ try {
         # Helper function to safely update config without duplication
         function Update-ZabbixConfig {
             param($Content, $Key, $Value)
+            
+            # Cleanup artifacts from previous script version (lines starting with "# $2=")
+            $Content = $Content -replace "(?m)^\s*# \$2=.*`r?`n", ""
+
             # 1. Comment out ALL active instances of the key (to remove duplicates/old values)
             #    Regex matches: Start of line, optional whitespace, Key, optional whitespace, =
-            $Content = $Content -replace "(?m)^(\s*)$Key\s*=", '$1# $2='
+            #    Capture Key in Group 2 to use in replacement
+            $Content = $Content -replace "(?m)^(\s*)($Key)\s*=", '$1# $2='
             
             # 2. Set the new value at the FIRST occurrence (which is now commented out)
             #    This preserves the location in the file if it exists.
